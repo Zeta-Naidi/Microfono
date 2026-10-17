@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Microfono</title>
+<style>
+  :root { --bg:#14161a; --fg:#f2f3f5; --muted:#8b919c; --accent:#ff5a1f; --off:#2a2e36; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f4f2; --fg:#16181c; --muted:#6b7079; --off:#dcdcd8; } }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.4 system-ui, -apple-system, sans-serif;
+         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+         padding: 24px max(16px, env(safe-area-inset-left, 0px)); text-align: center; }
+  h1 { margin: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  #btn { width: min(70vw, 280px); aspect-ratio: 1; border-radius: 50%; border: 0; background: var(--off); color: var(--fg);
+         font-size: 1.6rem; font-weight: 700; cursor: pointer; transition: background .15s, transform .1s; }
+  #btn:active { transform: scale(.97); }
+  #btn.on { background: var(--accent); color: #fff; }
+  .row { width: min(80vw, 320px); display: flex; flex-direction: column; gap: 8px; }
+  label { color: var(--muted); font-size: .85rem; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  #msg { min-height: 2.8em; color: var(--muted); font-size: .85rem; max-width: 30em; }
+</style>
+</head>
+<body>
+  <h1>Microfono</h1>
+  <button id="btn" type="button">Parla</button>
+  <div class="row">
+    <label for="vol">Volume voce</label>
+    <input id="vol" type="range" min="0" max="3" step="0.1" value="1">
+  </div>
+  <p id="msg">Collega il telefono alla cassa via Bluetooth, premi il tasto e parla. Tieni il telefono lontano dalla cassa per evitare il fischio.</p>
+<script>
+  let ctx, stream, gain, src;
+  const btn = document.getElementById('btn');
+  const vol = document.getElementById('vol');
+  const msg = document.getElementById('msg');
+
+  async function start() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false }
+      });
+      ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      await ctx.resume();
+      src = ctx.createMediaStreamSource(stream);
+      gain = ctx.createGain();
+      gain.gain.value = parseFloat(vol.value);
+      src.connect(gain).connect(ctx.destination);
+      btn.classList.add('on'); btn.textContent = 'Stop';
+      msg.textContent = 'In ascolto: la tua voce esce dalla cassa.';
+    } catch (e) {
+      msg.textContent = 'Microfono non disponibile. Consenti l’accesso al microfono per questo sito e apri la pagina con https.';
+    }
+  }
+  function stop() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ctx) ctx.close();
+    ctx = stream = null;
+    btn.classList.remove('on'); btn.textContent = 'Parla';
+    msg.textContent = 'Fermo.';
+  }
+  btn.addEventListener('click', () => (ctx ? stop() : start()));
+  vol.addEventListener('input', () => { if (gain) gain.gain.value = parseFloat(vol.value); });
+</script>
+</body>
+</html>
